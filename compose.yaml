@@ -1,0 +1,21 @@
+version: '3'
+
+services:
+  mapmatching:
+    image: mapmatching:1.0.0
+    environment:
+      - GEOFENCE=1e3
+      - NETWORK_TYPE=NetworkType.ALL
+    ports:
+      - "8999:8899"
+    networks:
+      - mapmatching
+    privileged: true
+
+networks:
+  mapmatching:
+    name: mapmatching
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.12.0.0/16
