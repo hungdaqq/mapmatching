@@ -39,7 +39,6 @@ class Road(NamedTuple):
     """
 
     road_id: RoadId
-
     geom: LineString
     metadata: Optional[dict] = None
 
@@ -50,8 +49,8 @@ class Road(NamedTuple):
         d = self._asdict()
         # d["origin_junction_id"] = self.road_id.start
         # d["destination_junction_id"] = self.road_id.end
-        d["road_key"] = self.road_id.key
-
+        # d["road_key"] = self.road_id.key
+        d['geom'] = self.geom.lcoords()
         return d
 
     def to_flat_dict(self) -> Dict[str, Any]:

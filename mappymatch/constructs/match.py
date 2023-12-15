@@ -12,7 +12,7 @@ def xy_to_latlon(coord):
     transformer = Transformer.from_crs(XY_CRS, LATLON_CRS)
     lat, lon = transformer.transform(x, y)
 
-    return lat, round(lon, 6)
+    return round(lat, 6), round(lon, 6)
 
 class Match(NamedTuple):
     """
@@ -49,7 +49,7 @@ class Match(NamedTuple):
         """
         # out = {"coordinate_id": self.coordinate.coordinate_id}
         lat, lon = xy_to_latlon(self.coordinate.geom.coords[0])
-        out = {"original_lat_long": (lon, lat)}
+        out = {"original_lat_long": [lon, lat]}
 
         if self.road is None:
             out["road_id"] = None

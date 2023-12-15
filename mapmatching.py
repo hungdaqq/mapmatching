@@ -5,6 +5,7 @@ from mappymatch.maps.nx.nx_map import NxMap, NetworkType
 from mappymatch.matchers.lcss.lcss import LCSSMatcher
 from itertools import chain
 
+import numpy as np
 import pandas as pd
 import json
 import time
@@ -17,19 +18,18 @@ logger = logging.getLogger()
 
 def xy_to_latlon(coord):
 
-    x,y = coord
+    x,y,anomaly = coord
     transformer = Transformer.from_crs(XY_CRS, LATLON_CRS)
     lat, lon = transformer.transform(x, y)
 
-    return lat, lon
+    return round(lat, 6), round(lon, 6), anomaly
 
 # import os
 # from dotenv import load_dotenv, find_dotenv
 # load_dotenv(find_dotenv())
 # GEOFENCE = os.environ.get("GEOFENCE")
-# NETWORK_TYPE = os.environ.get("NETWORK_TYPE")
+# NETWORK_TYPE = os.environ.get("NETWORK_TYPE")    
 
-# match_result.matches
 class Mapmatching:
     def __init__(self, trace_path=None, anomaly_data=None, geofence=1e3, network_type=NetworkType.ALL):
         self.anomaly_data = anomaly_data
@@ -39,16 +39,20 @@ class Mapmatching:
 
     def map_matcher(self):
         matcher = LCSSMatcher(self.nx_map)
-        match_result = matcher.match_trace(self.trace)        
+        match_result = matcher.match_trace(self.trace)     
+
         matches_df = match_result.matches_to_dataframe()
+        matches_df = matches_df[matches_df['original_lat_long'].isin(self.anomaly_data)]
+
         path_df = match_result.path_to_dataframe()
-        print(matches_df)
-        print(path_df)
-        anomaly_path = path_df[path_df['road_id'].isin(matches_df['road_id'])]
-        print(anomaly_path)
-        coordinates_list = path_df['geom'].apply(lambda x: list(x.coords)).to_list()
-        coordinates_list = list(chain(*coordinates_list))
-        coordinates_list = list(map(xy_to_latlon, coordinates_list))
+        path_df['road_id'] = np.where(path_df['road_id'].isin(matches_df['road_id']), 1, 0)
+        path_df['geom'] = path_df.apply(lambda row: [(coord[0], coord[1], row['road_id']) for coord in row['geom']], axis=1)
+
+        list_points = path_df['geom'].to_list()
+        list_points = list(chain(*list_points))
+        list_points = list(map(xy_to_latlon, list_points))
+
+        logger.info("Returning {} points".format(len(list_points)))
 
         geojson_data = {
             "type": "FeatureCollection",
@@ -59,9 +63,11 @@ class Mapmatching:
                         "type": "Point",
                         "coordinates": [lon, lat]  # GeoJSON uses [longitude, latitude] order
                     },
-                    "properties": {}
+                    "properties": {
+                        "anomaly": anomaly
+                    }
                 }
-                for i, (lat, lon) in enumerate(coordinates_list)
+                for (lat, lon, anomaly) in list_points
             ]
         }
         return geojson_data
@@ -70,7 +76,7 @@ from fastapi import FastAPI, HTTPException
 
 app = FastAPI()
 
-@app.post("/map")
+@app.post("/mapmatching")
 async def webhook(data: dict):
     try:
         start_time = time.time()
@@ -79,25 +85,29 @@ async def webhook(data: dict):
             json.dump(data, json_file)
         
         querry_plate = data['features'][0]['properties']['lp']
-        logger.info("Querry license plate " + str(querry_plate))
+        logger.info("Querying {} points".format(len(data['features'])))
+        logger.info("Querying license plate {}".format(querry_plate))
 
         if querry_plate == license_plate:
-            logger.info("MATCH")
+            logger.info("Queried license plate MATCH hard dataset")
             data_df = pd.DataFrame.from_dict(data)
             data_df['features'] = data_df['features'].apply(lambda x: x['geometry']['coordinates'])
             data_df = data_df[data_df['features'].isin(anomaly_df)]
             anomaly_data = data_df['features'].values.tolist()
-            logger.info("Anomaly data: " + str(anomaly_data))
+            logger.info("Found {} anomalies in query dataset".format(len(anomaly_data)))
         else:
-            logger.info("UNMATCH")
+            logger.info("Queried license plate UNMATCH hard dataset")
 
         mp = Mapmatching(trace_path="data.json", anomaly_data=anomaly_data)
 
-        end_time = time.time()
+        response = mp.map_matcher()
+
         # Calculate and log the computation time
+        end_time = time.time()
         computation_time = end_time - start_time
         logger.info(f"Computation time: {computation_time:.2f} seconds")
-        return mp.map_matcher()
+        
+        return response
 
     except Exception as e:
         # Handle any exceptions
@@ -111,7 +121,7 @@ if __name__ == "__main__":
     logger.info("Hard code with License plate " + str(license_plate[0]))
     anomaly_df = anomaly_df[anomaly_df['labels'] >= 1]
     anomaly_df = anomaly_df[['longitude','latitude']].values.tolist()
-    logger.info("Anomaly data:" + str(anomaly_df))
+    logger.info("Found {} anomalies in hard dataset".format(len(anomaly_df)))
 
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8899)
