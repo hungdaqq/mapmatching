@@ -49,7 +49,7 @@ class Match(NamedTuple):
         """
         # out = {"coordinate_id": self.coordinate.coordinate_id}
         lat, lon = xy_to_latlon(self.coordinate.geom.coords[0])
-        out = {"original_lat_long": [lon, lat]}
+        out = {"lat": lat, "lon":lon}
 
         if self.road is None:
             out["road_id"] = None

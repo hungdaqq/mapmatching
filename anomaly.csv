@@ -1,4 +1,4 @@
-speed,id,status,direction,geocoding,longitude,latitude,plate_no,extrainfo,ts,labels
+speed,id,status,direction,geocoding,lon,lat,plate_no,extrainfo,ts,labels
 0,758a1804-d873-4438-977b-ae8d70b0db67,park,86,"Khu đô thị Nam An Khánh, Xã An Khánh, Huyện Hoài Đức, Thành phố Hà Nội, Việt Nam",105.71652,21.001228,29KT10822,,1691048400000,0
 0,758a1804-d873-4438-977b-ae8d70b0db67,stop,86,"Khu đô thị Nam An Khánh, Xã An Khánh, Huyện Hoài Đức, Thành phố Hà Nội, Việt Nam",105.716515,21.001234,29KT10822,,1691048460000,0
 18,758a1804-d873-4438-977b-ae8d70b0db67,run,86,"Khu đô thị Nam An Khánh, Xã An Khánh, Huyện Hoài Đức, Thành phố Hà Nội, Việt Nam",105.718425,21.001466,29KT10822,,1691048520000,0
