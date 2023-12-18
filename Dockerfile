@@ -1,27 +1,15 @@
-# ARG PYTHON_VERSION=3.10.12
-# FROM python:${PYTHON_VERSION}-slim as base
+# Sử dụng hình ảnh Python 3.9
 FROM python:3.10
-# Prevents Python from writing pyc files.
-# ENV PYTHONDONTWRITEBYTECODE=1
 
-# Keeps Python from buffering stdout and stderr to avoid situations where
-# the application crashes without emitting any logs due to buffering.
-# ENV PYTHONUNBUFFERED=1
+# Tạo thư mục làm việc và đặt nó làm thư mục làm việc mặc định
+WORKDIR /app
 
-WORKDIR /mapmatching
+# Sao chép tất cả các tệp yêu cầu vào thư mục làm việc
+COPY requirements.txt /app/requirements.txt
+RUN pip install -r requirements.txt
 
-RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=bind,source=requirements.txt,target=requirements.txt \
-    python -m pip install -r requirements.txt
-
-# Switch to the non-privileged user to run the application.
-# USER root
-
-# Copy the source code into the container.
-COPY . /mapmatching
-
-# Expose the port that the application listens on.
-# EXPOSE 8899
-
-# Run the application.
-CMD python3 mapmatching.py
+COPY . /app/
+# Expose cổng cho ứng dụng Flask
+EXPOSE 8899
+# Khởi chạy ứng dụng Flask
+CMD ["python", "mapmatching.py"]

@@ -40,11 +40,14 @@ class Mapmatching:
         matcher = LCSSMatcher(self.nx_map)
         match_result = matcher.match_trace(self.trace)     
         matches_df = match_result.matches_to_dataframe()
-
-        matches_df = pd.merge(matches_df, self.anomaly_df, on=['lat', 'lon'], how='inner')
-
         path_df = match_result.path_to_dataframe()
-        path_df['road_id'] = np.where(path_df['road_id'].isin(matches_df['road_id']), 1, 0)
+
+        if self.anomaly_df is not None:
+            matches_df = pd.merge(matches_df, self.anomaly_df, on=['lat', 'lon'], how='inner') 
+            path_df['road_id'] = np.where(path_df['road_id'].isin(matches_df['road_id']), 1, 0)
+        else:
+            path_df['road_id'] = 0
+
         path_df['geom'] = path_df['geom'].apply(lambda x: x.coords)
         path_df['geom'] = path_df.apply(lambda row: [(coord[0], coord[1], row['road_id']) for coord in row['geom']], axis=1)
 
@@ -67,15 +70,28 @@ class Mapmatching:
 
         return response
 
-from fastapi import FastAPI, HTTPException
+from flask import Flask, request, jsonify
 
-app = FastAPI()
+app = Flask(__name__)
 
-@app.post("/mapmatching")
-async def webhook(data: dict):
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Load anomaly data
+a_df = pd.read_csv('anomaly.csv', usecols=['lat', 'lon', 'plate_no', 'labels'])
+license_plate = a_df["plate_no"].unique()[0]
+logger.info("Hard code with License plate {}".format(license_plate))
+a_df = a_df[a_df['labels'] >= 1]
+a_df = a_df[['lat', 'lon']]
+logger.info("Found {} anomalies in hard dataset".format(len(a_df)))
+
+@app.route("/mapmatching", methods=["POST"])
+def map_matching():
     try:
         start_time = time.time()
 
+        data = request.get_json()
         querry_plate = data['license_plate']
         logger.info("Querying {} points".format(len(data['locations'])))
         logger.info("Querying license plate {}".format(querry_plate))
@@ -102,22 +118,13 @@ async def webhook(data: dict):
         end_time = time.time()
         computation_time = end_time - start_time
         logger.info(f"Computation time: {computation_time:.2f} seconds")
-        
-        return response
+
+        return jsonify(response)
 
     except Exception as e:
         # Handle any exceptions
         logger.info(f"Error: {e}")
-        raise HTTPException(status_code=500, detail="Error processing request")
+        return jsonify({"error": "Error processing request"}), 500
 
 if __name__ == "__main__":
-
-    a_df = pd.read_csv('anomaly.csv',usecols=['lat','lon','plate_no','labels'])
-    license_plate = a_df["plate_no"].unique()[0]
-    logger.info("Hard code with License plate {}".format(license_plate))
-    a_df = a_df[a_df['labels'] >= 1]
-    a_df = a_df[['lat','lon']]
-    logger.info("Found {} anomalies in hard dataset".format(len(a_df)))
-
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8899)
+    app.run(host="0.0.0.0", port=8899)
