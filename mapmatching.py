@@ -45,6 +45,7 @@ class Mapmatching:
 
         path_df = match_result.path_to_dataframe()
         path_df['road_id'] = np.where(path_df['road_id'].isin(matches_df['road_id']), 1, 0)
+        path_df['geom'] = path_df['geom'].apply(lambda x: x.coords)
         path_df['geom'] = path_df.apply(lambda row: [(coord[0], coord[1], row['road_id']) for coord in row['geom']], axis=1)
 
         list_points = path_df['geom'].to_list()

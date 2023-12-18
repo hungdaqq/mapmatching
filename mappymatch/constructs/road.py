@@ -50,7 +50,6 @@ class Road(NamedTuple):
         # d["origin_junction_id"] = self.road_id.start
         # d["destination_junction_id"] = self.road_id.end
         # d["road_key"] = self.road_id.key
-        d['geom'] = self.geom.lcoords()
         return d
 
     def to_flat_dict(self) -> Dict[str, Any]:
